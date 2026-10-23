@@ -316,8 +316,8 @@ translate_query() {
   text="${text_words[*]}"
   [[ -n ${text} ]] || return 1
 
-  # Derive source/target languages from the specs (defaults: auto -> en).
-  sl="auto"
+  # Derive source/target languages from the specs (defaults: English -> English).
+  sl="en"
   tl="en"
   for spec in "${spec_args[@]}"; do
     case "$spec" in
