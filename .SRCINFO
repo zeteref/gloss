@@ -1,0 +1,15 @@
+pkgbase = gloss
+	pkgdesc = Translate and speak text in an osd-window overlay
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/zeteref/gloss
+	arch = any
+	license = MIT
+	depends = walker
+	depends = curl
+	depends = jq
+	depends = mpv
+	depends = python
+	depends = osd-window
+
+pkgname = gloss

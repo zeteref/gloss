@@ -1,0 +1,67 @@
+@define-color window_bg_color #1f1f28;
+@define-color accent_bg_color #54546d;
+@define-color theme_fg_color #f2ecbc;
+@define-color accent #9ece6a;
+
+* {
+  all: unset;
+}
+
+window,
+.window {
+  background: transparent;
+}
+
+.box-wrapper {
+  background: alpha(@window_bg_color, 0.94);
+  color: @theme_fg_color;
+  border-radius: 16px;
+  border: 1px solid alpha(@accent, 0.55);
+  padding: 4px 18px;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.search-container,
+.input {
+  background: transparent;
+}
+
+.input {
+  caret-color: @accent;
+  color: @theme_fg_color;
+  font-size: 16px;
+  padding: 12px 0;
+  min-height: 24px;
+}
+
+.input placeholder {
+  color: @theme_fg_color;
+  opacity: 0.4;
+}
+
+.input selection {
+  background: alpha(@accent, 0.35);
+  color: @theme_fg_color;
+}
+
+.content-container,
+.keybinds,
+.scroll,
+.placeholder,
+.elephant-hint,
+.preview,
+.list {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.error {
+  color: #dcd7ba;
+  background: #c34043;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}

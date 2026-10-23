@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+OPACITY=0.6
+FONT="Sans 12"
+
+usage() {
+  printf 'usage: %s [prompt|--speak LANG TEXT]\n' "${0##*/}" >&2
+  printf '  prompt           (default) walker -> google translate -> osd-window\n' >&2
+  printf '  --speak LANG TEXT  read TEXT aloud in LANG via Google TTS\n' >&2
+}
+
+# True if the argument looks like a translate-shell language spec
+# (e.g. ":fr", ":en", ":pl", "pl:", "pl:en").
+is_lang_spec() {
+  [[ "$1" =~ ^:[A-Za-z]{2,3}$ ]] ||
+    [[ "$1" =~ ^[A-Za-z]{2,3}:$ ]] ||
+    [[ "$1" =~ ^[A-Za-z]{2,3}:[A-Za-z]{2,3}$ ]]
+}
+
+# Fetch a translation from Google's free endpoint, parse the JSON, and emit a
+# JSON envelope: { markup, original, translation, from, to }.
+#
+# `markup` is Pango markup for display; the rest are plain text for TTS.
+translate() {
+  local text="$1" sl="$2" tl="$3"
+  python3 - "$text" "$sl" "$tl" <<'PY'
+import sys, json, html
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
+
+text, sl, tl = sys.argv[1], sys.argv[2], sys.argv[3]
+
+params = [('client', 'gtx'), ('ie', 'UTF-8'), ('oe', 'UTF-8')]
+for d in ('t', 'bd', 'ex', 'ld', 'md', 'rw', 'rm', 'ss', 'at', 'gt', 'qca'):
+    params.append(('dt', d))
+params += [('sl', sl), ('tl', tl), ('hl', 'en'), ('q', text)]
+
+req = Request(
+    'http://translate.googleapis.com/translate_a/single?' + urlencode(params),
+    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 '
+             'Safari/537.36 Edg/104.0.1293.54'},
+)
+try:
+    with urlopen(req, timeout=15) as r:
+        data = json.load(r)
+except Exception:
+    sys.exit(1)
+
+if not data or not data[0] or not data[0][0]:
+    sys.exit(1)
+
+# --- extract translation/original/phonetics ---
+parts = data[0]
+translation = ''.join(p[0] for p in parts if len(p) > 0 and p[0])
+original = ' '.join(p[1] for p in parts if len(p) > 1 and p[1])
+t_phon = ' '.join(p[2] for p in parts if len(p) > 2 and p[2])
+o_phon = ' '.join(p[3] for p in parts if len(p) > 3 and p[3])
+
+# Detected/used source language (e.g. "pl"); fall back to what we asked for.
+from_lang = data[2] if len(data) > 2 and data[2] else sl
+if not from_lang or from_lang == 'auto':
+    det = data[8] if len(data) > 8 else None
+    if det and det[0] and det[0][0]:
+        from_lang = det[0][0]
+
+def get(idx):
+    return data[idx] if len(data) > idx and data[idx] else None
+
+dictionary = get(1)
+reverse = get(5)
+synonyms = get(11)
+definitions = get(12)
+examples = get(13)
+
+# --- Pango rendering ---
+def esc(s):
+    return html.escape(s, quote=False)
+
+def span(s, color=None, bold=False, underline=False, italic=False, size=None):
+    attrs = []
+    if color: attrs.append('foreground="%s"' % color)
+    if bold: attrs.append('weight="bold"')
+    if underline: attrs.append('underline="single"')
+    if italic: attrs.append('style="italic"')
+    if size: attrs.append('size="%s"' % size)
+    a = ' '.join(attrs)
+    return '<span %s>%s</span>' % (a, s) if a else s
+
+C_TRANS = '#9ece6a'   # green  - translation
+C_ORIG  = '#7e9cd8'   # blue   - original
+C_POS   = '#e0af68'   # orange - part of speech
+C_DIM   = '#565f89'   # grey   - secondary / reverse
+C_SYN   = '#bb9af7'   # purple - synonyms
+C_EX    = '#7dcfff'   # cyan   - examples
+
+out = []
+
+if original:
+    out.append(span(esc(original), C_ORIG, bold=True, size='large'))
+if o_phon:
+    out.append(span(esc(o_phon), C_DIM))
+if translation:
+    out.append(span(esc(translation), C_TRANS, bold=True, size='large'))
+if t_phon:
+    out.append(span(esc(t_phon), C_DIM))
+
+out.append(span('[ %s \u2192 %s ]' % (esc(from_lang), esc(tl)), C_DIM, italic=True))
+
+# Dictionary: part of speech -> translated words + reverse translations.
+if dictionary:
+    for entry in dictionary:
+        if not isinstance(entry, list):
+            continue
+        pos = entry[0] if len(entry) > 0 else None
+        entries = entry[2] if len(entry) > 2 and isinstance(entry[2], list) else None
+        if not entries:
+            continue
+        if pos:
+            out.append(span(esc(pos), C_POS, bold=True))
+        for e in entries:
+            if not isinstance(e, list) or not e or not e[0]:
+                continue
+            word = e[0]
+            rev = e[1] if len(e) > 1 and isinstance(e[1], list) else []
+            line = span(esc(word), C_TRANS, bold=True)
+            if rev:
+                line += '  ' + span(esc(', '.join(r for r in rev if r)), C_DIM)
+            out.append(line)
+
+# Synonyms / thesaurus.
+if synonyms:
+    for group in synonyms:
+        if not isinstance(group, list):
+            continue
+        pos = group[0] if len(group) > 0 else None
+        groups = group[1] if len(group) > 1 and isinstance(group[1], list) else []
+        if not groups:
+            continue
+        if pos:
+            out.append(span(esc(pos), C_POS, bold=True))
+        for g in groups:
+            if not isinstance(g, list) or not g:
+                continue
+            words = g[0] if isinstance(g[0], list) else []
+            # Registers come as a list of lists (e.g. [["dated"], ["informal"]]).
+            regs = []
+            if len(g) > 2 and isinstance(g[2], list):
+                for r in g[2]:
+                    if isinstance(r, list):
+                        regs.extend(x for x in r if isinstance(x, str))
+                    elif isinstance(r, str):
+                        regs.append(r)
+            if not words:
+                continue
+            line = span(esc(', '.join(words)), C_SYN)
+            if regs:
+                line += ' ' + span('(' + esc(', '.join(regs)) + ')', C_DIM, italic=True)
+            out.append(line)
+
+# Definitions (Oxford-style, with example sentences).
+if definitions:
+    for group in definitions:
+        if not isinstance(group, list):
+            continue
+        pos = group[0] if len(group) > 0 else None
+        defs = group[1] if len(group) > 1 and isinstance(group[1], list) else []
+        if not defs:
+            continue
+        if pos:
+            out.append(span(esc(pos), C_POS, bold=True))
+        for d in defs:
+            if not isinstance(d, list) or not d or not d[0]:
+                continue
+            line = esc(d[0])
+            ex = d[2] if len(d) > 2 and d[2] else None
+            if ex:
+                line += ' ' + span('\u201c' + esc(ex) + '\u201d', C_EX, italic=True)
+            out.append(line)
+
+# Usage examples.
+if examples:
+    for group in examples:
+        if not isinstance(group, list):
+            continue
+        for ex in group:
+            if not isinstance(ex, list) or not ex:
+                continue
+            s = ex[0].replace('<b>', '').replace('</b>', '')
+            out.append(span('\u2022 ' + esc(s), C_EX, italic=True))
+
+# Reverse translations / see-also.
+if reverse:
+    for r in reverse:
+        if not isinstance(r, list):
+            continue
+        seg = r[0] if len(r) > 0 and r[0] else None
+        alts = r[2] if len(r) > 2 and isinstance(r[2], list) else []
+        if not alts:
+            continue
+        words = [a[0] for a in alts if isinstance(a, list) and a and a[0]]
+        if not words:
+            continue
+        out.append(span(esc(seg), C_ORIG, bold=True)
+                   + ' \u2192 ' + span(esc(', '.join(words)), C_DIM))
+
+markup = '\n'.join(out)
+if not translation and not original:
+    sys.exit(1)
+
+print(json.dumps({
+    'markup': markup,
+    'original': original,
+    'translation': translation,
+    'from': from_lang,
+    'to': tl,
+}, ensure_ascii=False))
+PY
+}
+
+# Resolve the osd-window config: user override first, then the packaged default.
+osd_config() {
+  local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gloss/osd-window.toml"
+  [[ -f "$cfg" ]] || cfg="/usr/share/gloss/osd-window.toml"
+  printf '%s' "$cfg"
+}
+
+prompt() {
+  if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    command -v notify-send >/dev/null 2>&1 && notify-send -a gloss "gloss requires curl and jq"
+    return 1
+  fi
+
+  local osd_cfg
+  osd_cfg="$(osd_config)"
+
+  query=$(walker --dmenu --inputonly --nohints --hideqa --exit \
+    --theme trans --placeholder "translate…" --width 640) || return 0
+
+  [[ -n ${query} ]] || return 0
+
+  # Split off language specs (e.g. ":fr", "pl:", "pl:en") so the text stays as
+  # a single argument.
+  read -r -a words <<< "${query}"
+  spec_args=()
+  text_words=()
+  for word in "${words[@]}"; do
+    if is_lang_spec "$word"; then
+      spec_args+=("$word")
+    else
+      text_words+=("$word")
+    fi
+  done
+  text="${text_words[*]}"
+
+  [[ -n ${text} ]] || return 0
+
+  # Derive source/target languages from the specs (defaults: auto -> en).
+  sl="auto"
+  tl="en"
+  for spec in "${spec_args[@]}"; do
+    case "$spec" in
+      :*)  tl="${spec#:}" ;;
+      *:)  sl="${spec%:}" ;;
+      *:*) sl="${spec%%:*}"; tl="${spec#*:}" ;;
+    esac
+  done
+
+  result=$(translate "$text" "$sl" "$tl") || {
+    printf 'No translation' | osd-window --fullscreen -o "${OPACITY}" -F "${FONT}" --config "$osd_cfg"
+    return 1
+  }
+
+  markup=$(jq -r '.markup' <<<"$result")
+  original=$(jq -r '.original' <<<"$result")
+  translation=$(jq -r '.translation' <<<"$result")
+  from=$(jq -r '.from' <<<"$result")
+  to=$(jq -r '.to' <<<"$result")
+
+  if [[ -z ${markup} ]]; then
+    printf 'No translation' | osd-window --fullscreen -o "${OPACITY}" -F "${FONT}" --config "$osd_cfg"
+    return 1
+  fi
+
+  printf '%s' "${markup}" | osd-window --fullscreen -o "${OPACITY}" -F "${FONT}" \
+    --config "$osd_cfg" \
+    --original "$original" --translation "$translation" --from "$from" --to "$to"
+}
+
+# Read TEXT aloud in LANG using Google's TTS endpoint.
+speak() {
+  local lang="${1:-}"; shift
+  local text="$*"
+  if [[ -z ${lang} || -z ${text} ]]; then
+    usage >&2
+    return 2
+  fi
+
+  curl -s --max-time 30 -G 'http://translate.google.com/translate_tts' \
+    --data-urlencode 'ie=UTF-8' --data-urlencode 'client=gtx' \
+    --data-urlencode "tl=$lang" --data-urlencode "q=$text" \
+    | mpv --no-config --no-video --no-terminal --really-quiet -
+}
+
+case "${1:-prompt}" in
+  prompt|-p|--prompt)     prompt ;;
+  speak|--speak)          shift; speak "$@" ;;
+  -h|--help)              usage ;;
+  *)                      usage; exit 2 ;;
+esac

@@ -1,0 +1,51 @@
+# osd-window configuration used by gloss.
+#
+# This is the packaged default; to override it, place your own copy at
+# ~/.config/gloss/osd-window.toml — gloss prefers that file when it exists.
+#
+# Every value is optional; anything you omit falls back to the built-in default.
+
+# Minimum font size (points) before auto-fit falls back to scrolling.
+min_font = 10
+
+# Space between the box edge and the text, in pixels.
+padding = 24
+
+# Box background colour (#RRGGBB).
+background = "#0d0d0d"
+
+# Box border colour (#RRGGBB).
+border = "#4d4d4d"
+
+# Base text colour (#RRGGBB). Markup spans can override this.
+text = "#ffffff"
+
+# Keybindings. Each action takes a list of one or more key names.
+#
+# Key names are XKB keysym names; run `osd-window --get-key`, press a key, and
+# it prints the exact name to use here. A few friendly aliases also work:
+#   esc/escape, enter/return, space, up/down/left/right,
+#   pgup/pgdn/page_up/page_down, del/delete, backspace, tab, home, end.
+# Names are case-insensitive.
+#
+# A key may only be bound to one action: using the same key in two actions is
+# an error. If you override one action, the rest keep their defaults below.
+[keys]
+dismiss     = ["Escape", "q", "Return"]
+scroll_up   = ["k", "Up"]
+scroll_down = ["j", "Down"]
+page_up     = ["Page_Up"]
+page_down   = ["Page_Down"]
+
+# Command bindings: on a matching keypress, run `command` via `sh -c`.
+# Available placeholders (already shell-quoted, so don't wrap them in quotes):
+#   {original} {translation} {text} {from} {to}
+[commands.speak]
+keys = ["s"]
+command = "gloss --speak {to} {translation}"
+dismiss = false
+
+[commands.speak-original]
+keys = ["o"]
+command = "gloss --speak {from} {original}"
+dismiss = false
