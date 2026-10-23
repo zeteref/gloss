@@ -49,7 +49,7 @@ def spellcheck(s):
     corrected = list(words)
     wi = 0
     for line in proc.stdout.splitlines():
-        if line.startswith('@'):
+        if not line or line.startswith('@'):
             continue
         if wi >= len(words):
             break
