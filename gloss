@@ -27,11 +27,45 @@ is_lang_spec() {
 translate() {
   local text="$1" sl="$2" tl="$3"
   python3 - "$text" "$sl" "$tl" <<'PY'
-import sys, json, html
+import sys, json, html, subprocess
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
 text, sl, tl = sys.argv[1], sys.argv[2], sys.argv[3]
+
+# Spellcheck: correct misspelled words (English/Polish) before translating.
+def spellcheck(s):
+    words = s.split()
+    if not words:
+        return s, None
+    try:
+        proc = subprocess.run(
+            ['hunspell', '-d', 'en_US,pl_PL', '-a'],
+            input='\n'.join(words) + '\n',
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        return s, None
+    corrected = list(words)
+    wi = 0
+    for line in proc.stdout.splitlines():
+        if line.startswith('@'):
+            continue
+        if wi >= len(words):
+            break
+        if line.startswith('&'):
+            parts = line.split(':', 1)
+            if len(parts) > 1:
+                sug = parts[1].split(',')[0].strip()
+                if sug:
+                    corrected[wi] = sug
+        wi += 1
+    new = ' '.join(corrected)
+    return new, (s if new != s else None)
+
+corrected_text, corrected_from = spellcheck(text)
+if corrected_from is not None:
+    text = corrected_text
 
 params = [('client', 'gtx'), ('ie', 'UTF-8'), ('oe', 'UTF-8')]
 for d in ('t', 'bd', 'ex', 'ld', 'md', 'rw', 'rm', 'ss', 'at', 'gt', 'qca'):
@@ -76,11 +110,6 @@ synonyms = get(11)
 definitions = get(12)
 examples = get(13)
 
-# Autocorrect: data[7] is [html, corrected_text, ...]; when [7][5] is true, Google
-# silently corrected the input before translating, so surface it.
-autocorrect = get(7)
-was_autocorrected = bool(autocorrect) and len(autocorrect) > 5 and autocorrect[5] is True
-
 # --- Pango rendering ---
 def esc(s):
     return html.escape(s, quote=False)
@@ -110,8 +139,8 @@ out = []
 if original:
     out.append(span(esc(original), C_ORIG, bold=True, size='large')
                + key_hint('o'))
-    if was_autocorrected:
-        out.append(span('(corrected from \u201c' + esc(text) + '\u201d)', C_DIM, italic=True))
+    if corrected_from is not None:
+        out.append(span('(corrected from \u201c' + esc(corrected_from) + '\u201d)', C_DIM, italic=True))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:

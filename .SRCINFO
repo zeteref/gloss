@@ -11,5 +11,8 @@ pkgbase = gloss
 	depends = mpv
 	depends = python
 	depends = osd-window
+	depends = hunspell
+	depends = hunspell-en_us
+	depends = hunspell-pl
 
 pkgname = gloss
