@@ -63,6 +63,22 @@ def spellcheck(s):
     new = ' '.join(corrected)
     return new, (s if new != s else None)
 
+# True if all words are recognized English (reliable "default to en" signal).
+def detect_lang(s):
+    try:
+        proc = subprocess.run(
+            ['hunspell', '-d', 'en_US', '-a'],
+            input=s + '\n', capture_output=True, text=True, timeout=5,
+        )
+    except Exception:
+        return None
+    for line in proc.stdout.splitlines():
+        if not line or line.startswith('@'):
+            continue
+        if not line.startswith('*'):
+            return None
+    return 'en'
+
 corrected_text, corrected_from = spellcheck(text)
 if corrected_from is not None:
     text = corrected_text
@@ -100,6 +116,16 @@ if not from_lang or from_lang == 'auto':
     det = data[8] if len(data) > 8 else None
     if det and det[0] and det[0][0]:
         from_lang = det[0][0]
+
+# Google's auto-detection is unreliable for isolated words (e.g. "misjudgment"
+# -> "ht"), so when the source wasn't specified, prefer hunspell's answer and
+# otherwise default to English.
+if sl == 'auto':
+    lang = detect_lang(text)
+    if lang is not None:
+        from_lang = lang
+    elif not from_lang or from_lang == 'auto':
+        from_lang = 'en'
 
 def get(idx):
     return data[idx] if len(data) > idx and data[idx] else None
