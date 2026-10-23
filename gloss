@@ -205,6 +205,10 @@ if reverse:
         out.append(span(esc(seg), C_ORIG, bold=True)
                    + ' \u2192 ' + span(esc(', '.join(words)), C_DIM))
 
+# Keybinding hint (subtle footer).
+out.append('')
+out.append(span('s speak translation \u00b7 o speak original', C_DIM, italic=True, size='small'))
+
 markup = '\n'.join(out)
 if not translation and not original:
     sys.exit(1)
