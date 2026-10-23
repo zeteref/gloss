@@ -3,6 +3,7 @@ set -uo pipefail
 
 OPACITY=0.6
 FONT="Sans 12"
+VERSION="0.1.0"
 
 usage() {
   printf 'usage: %s [prompt|--speak LANG TEXT]\n' "${0##*/}" >&2
@@ -310,6 +311,7 @@ speak() {
 case "${1:-prompt}" in
   prompt|-p|--prompt)     prompt ;;
   speak|--speak)          shift; speak "$@" ;;
+  -V|--version)           printf 'gloss %s\n' "$VERSION" ;;
   -h|--help)              usage ;;
   *)                      usage; exit 2 ;;
 esac
