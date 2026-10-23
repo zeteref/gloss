@@ -6,9 +6,10 @@ FONT="Sans 12"
 VERSION="0.1.0"
 
 usage() {
-  printf 'usage: %s [prompt|--speak LANG TEXT]\n' "${0##*/}" >&2
-  printf '  prompt           (default) walker -> google translate -> osd-window\n' >&2
-  printf '  --speak LANG TEXT  read TEXT aloud in LANG via Google TTS\n' >&2
+  printf 'usage: %s [prompt|--stdout TEXT|--speak LANG TEXT]\n' "${0##*/}" >&2
+  printf '  prompt            (default) walker -> google translate -> osd-window\n' >&2
+  printf '  --stdout TEXT     translate and print JSON to stdout (no walker/osd)\n' >&2
+  printf '  --speak LANG TEXT   read TEXT aloud in LANG via Google TTS\n' >&2
 }
 
 # True if the argument looks like a translate-shell language spec
@@ -239,6 +240,44 @@ osd_config() {
   printf '%s' "$cfg"
 }
 
+# Translate a query string (text + optional :lang specs) and print the JSON
+# envelope. Shared by `prompt` (walker) and `--stdout` (argv).
+translate_query() {
+  local query="$1"
+  local words spec_args=() text_words=() word text sl tl
+
+  read -r -a words <<< "${query}"
+  for word in "${words[@]}"; do
+    if is_lang_spec "$word"; then
+      spec_args+=("$word")
+    else
+      text_words+=("$word")
+    fi
+  done
+  text="${text_words[*]}"
+  [[ -n ${text} ]] || return 1
+
+  # Derive source/target languages from the specs (defaults: auto -> en).
+  sl="auto"
+  tl="en"
+  for spec in "${spec_args[@]}"; do
+    case "$spec" in
+      :*)  tl="${spec#:}" ;;
+      *:)  sl="${spec%:}" ;;
+      *:*) sl="${spec%%:*}"; tl="${spec#*:}" ;;
+    esac
+  done
+
+  translate "$text" "$sl" "$tl"
+}
+
+# Print the translation JSON for argv text (no walker / osd-window) — for
+# scripting and debugging.
+stdout_mode() {
+  [[ $# -gt 0 ]] || { usage >&2; return 2; }
+  translate_query "$*"
+}
+
 prompt() {
   if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
     command -v notify-send >/dev/null 2>&1 && notify-send -a gloss "gloss requires curl and jq"
@@ -253,34 +292,7 @@ prompt() {
 
   [[ -n ${query} ]] || return 0
 
-  # Split off language specs (e.g. ":fr", "pl:", "pl:en") so the text stays as
-  # a single argument.
-  read -r -a words <<< "${query}"
-  spec_args=()
-  text_words=()
-  for word in "${words[@]}"; do
-    if is_lang_spec "$word"; then
-      spec_args+=("$word")
-    else
-      text_words+=("$word")
-    fi
-  done
-  text="${text_words[*]}"
-
-  [[ -n ${text} ]] || return 0
-
-  # Derive source/target languages from the specs (defaults: auto -> en).
-  sl="auto"
-  tl="en"
-  for spec in "${spec_args[@]}"; do
-    case "$spec" in
-      :*)  tl="${spec#:}" ;;
-      *:)  sl="${spec%:}" ;;
-      *:*) sl="${spec%%:*}"; tl="${spec#*:}" ;;
-    esac
-  done
-
-  result=$(translate "$text" "$sl" "$tl") || {
+  result=$(translate_query "$query") || {
     printf 'No translation' | osd-window --fullscreen -o "${OPACITY}" -F "${FONT}" --config "$osd_cfg"
     return 1
   }
@@ -319,6 +331,7 @@ speak() {
 case "${1:-prompt}" in
   prompt|-p|--prompt)     prompt ;;
   speak|--speak)          shift; speak "$@" ;;
+  stdout|--stdout)        shift; stdout_mode "$@" ;;
   -V|--version)           printf 'gloss %s\n' "$VERSION" ;;
   -h|--help)              usage ;;
   *)                      usage; exit 2 ;;
