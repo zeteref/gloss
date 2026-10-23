@@ -96,16 +96,20 @@ C_DIM   = '#565f89'   # grey   - secondary / reverse
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
 
+def key_hint(key, color):
+    return (' ' + span('[' + esc(key) + ']', color, bold=True)
+            + ' ' + span('speak', C_DIM))
+
 out = []
 
 if original:
     out.append(span(esc(original), C_ORIG, bold=True, size='large')
-               + ' ' + span('(press o to speak)', C_POS))
+               + key_hint('o', C_ORIG))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:
     out.append(span(esc(translation), C_TRANS, bold=True, size='large')
-               + ' ' + span('(press s to speak)', C_POS))
+               + key_hint('s', C_TRANS))
 if t_phon:
     out.append(span(esc(t_phon), C_DIM))
 
