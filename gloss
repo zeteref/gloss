@@ -63,25 +63,37 @@ def spellcheck(s):
     new = ' '.join(corrected)
     return new, (s if new != s else None)
 
-# True if all words are recognized English (reliable "default to en" signal).
+# Determine the source language via hunspell: 'en', 'pl', or None.
 def detect_lang(s):
-    try:
-        proc = subprocess.run(
-            ['hunspell', '-d', 'en_US', '-a'],
-            input=s + '\n', capture_output=True, text=True, timeout=5,
-        )
-    except Exception:
-        return None
-    for line in proc.stdout.splitlines():
-        if not line or line.startswith('@'):
+    for code, dictname in (('en', 'en_US'), ('pl', 'pl_PL')):
+        try:
+            proc = subprocess.run(
+                ['hunspell', '-d', dictname, '-a'],
+                input=s + '\n', capture_output=True, text=True, timeout=5,
+            )
+        except Exception:
             continue
-        if not line.startswith('*'):
-            return None
-    return 'en'
+        recognized = True
+        for line in proc.stdout.splitlines():
+            if not line or line.startswith('@'):
+                continue
+            if not line.startswith('*'):
+                recognized = False
+                break
+        if recognized:
+            return code
+    return None
 
 corrected_text, corrected_from = spellcheck(text)
 if corrected_from is not None:
     text = corrected_text
+
+# When the source wasn't specified, detect it (English/Polish) so isolated
+# words get the right dictionary instead of Google's unreliable auto-guess.
+if sl == 'auto':
+    lang = detect_lang(text)
+    if lang is not None:
+        sl = lang
 
 params = [('client', 'gtx'), ('ie', 'UTF-8'), ('oe', 'UTF-8')]
 for d in ('t', 'bd', 'ex', 'ld', 'md', 'rw', 'rm', 'ss', 'at', 'gt', 'qca'):
@@ -113,19 +125,7 @@ o_phon = ' '.join(p[3] for p in parts if len(p) > 3 and p[3])
 # Detected/used source language (e.g. "pl"); fall back to what we asked for.
 from_lang = data[2] if len(data) > 2 and data[2] else sl
 if not from_lang or from_lang == 'auto':
-    det = data[8] if len(data) > 8 else None
-    if det and det[0] and det[0][0]:
-        from_lang = det[0][0]
-
-# Google's auto-detection is unreliable for isolated words (e.g. "misjudgment"
-# -> "ht"), so when the source wasn't specified, prefer hunspell's answer and
-# otherwise default to English.
-if sl == 'auto':
-    lang = detect_lang(text)
-    if lang is not None:
-        from_lang = lang
-    elif not from_lang or from_lang == 'auto':
-        from_lang = 'en'
+    from_lang = sl if sl != 'auto' else 'en'
 
 def get(idx):
     return data[idx] if len(data) > idx and data[idx] else None
@@ -316,8 +316,8 @@ translate_query() {
   text="${text_words[*]}"
   [[ -n ${text} ]] || return 1
 
-  # Derive source/target languages from the specs (defaults: English -> English).
-  sl="en"
+  # Derive source/target languages from the specs (defaults: auto -> en).
+  sl="auto"
   tl="en"
   for spec in "${spec_args[@]}"; do
     case "$spec" in
