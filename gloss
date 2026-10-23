@@ -75,6 +75,11 @@ synonyms = get(11)
 definitions = get(12)
 examples = get(13)
 
+# Autocorrect: data[7] is [html, corrected_text, ...]; when [7][5] is true, Google
+# silently corrected the input before translating, so surface it.
+autocorrect = get(7)
+was_autocorrected = bool(autocorrect) and len(autocorrect) > 5 and autocorrect[5] is True
+
 # --- Pango rendering ---
 def esc(s):
     return html.escape(s, quote=False)
@@ -104,6 +109,8 @@ out = []
 if original:
     out.append(span(esc(original), C_ORIG, bold=True, size='large')
                + key_hint('o'))
+    if was_autocorrected:
+        out.append(span('(corrected from \u201c' + esc(text) + '\u201d)', C_DIM, italic=True))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:
