@@ -96,22 +96,23 @@ C_DIM   = '#565f89'   # grey   - secondary / reverse
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
 
+def sup(s):
+    return '<sup><span foreground="%s" size="x-small">%s</span></sup>' % (C_DIM, esc(s))
+
 out = []
 
 if original:
-    out.append(span(esc(original), C_ORIG, bold=True, size='large'))
+    out.append(span(esc(original), C_ORIG, bold=True, size='large')
+               + ' ' + sup('press o to speak'))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:
-    out.append(span(esc(translation), C_TRANS, bold=True, size='large'))
+    out.append(span(esc(translation), C_TRANS, bold=True, size='large')
+               + ' ' + sup('press s to speak'))
 if t_phon:
     out.append(span(esc(t_phon), C_DIM))
 
 out.append(span('[ %s \u2192 %s ]' % (esc(from_lang), esc(tl)), C_DIM, italic=True))
-
-# Keybinding hint (subtle, close to the words).
-out.append('')
-out.append(span('s speak translation \u00b7 o speak original', C_DIM, italic=True, size='small'))
 
 # Dictionary: part of speech -> translated words + reverse translations.
 if dictionary:
