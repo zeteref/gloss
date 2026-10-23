@@ -96,20 +96,19 @@ C_DIM   = '#565f89'   # grey   - secondary / reverse
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
 
-def key_hint(key, color):
-    return (' ' + span('[' + esc(key) + ']', color, bold=True)
-            + ' ' + span('speak', C_DIM))
+def key_hint(key):
+    return ' ' + span('[' + esc(key) + '] speak', C_DIM, italic=True)
 
 out = []
 
 if original:
     out.append(span(esc(original), C_ORIG, bold=True, size='large')
-               + key_hint('o', C_ORIG))
+               + key_hint('o'))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:
     out.append(span(esc(translation), C_TRANS, bold=True, size='large')
-               + key_hint('s', C_TRANS))
+               + key_hint('s'))
 if t_phon:
     out.append(span(esc(t_phon), C_DIM))
 
