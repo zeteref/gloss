@@ -130,6 +130,7 @@ C_POS   = '#e0af68'   # orange - part of speech
 C_DIM   = '#565f89'   # grey   - secondary / reverse
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
+C_ERR   = '#ff5555'   # red    - misspelled original
 
 def key_hint(key):
     return ' ' + span('[' + esc(key) + '] speak', C_DIM, italic=True)
@@ -137,10 +138,13 @@ def key_hint(key):
 out = []
 
 if original:
-    out.append(span(esc(original), C_ORIG, bold=True, size='large')
-               + key_hint('o'))
     if corrected_from is not None:
-        out.append(span('(corrected from \u201c' + esc(corrected_from) + '\u201d)', C_DIM, italic=True))
+        out.append(span('\u2717 ' + esc(corrected_from), C_ERR, bold=True, size='large'))
+        out.append(span('\u2713 ' + esc(original), C_ORIG, bold=True, size='large')
+                   + key_hint('o'))
+    else:
+        out.append(span(esc(original), C_ORIG, bold=True, size='large')
+                   + key_hint('o'))
 if o_phon:
     out.append(span(esc(o_phon), C_DIM))
 if translation:
