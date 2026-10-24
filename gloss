@@ -202,37 +202,7 @@ if dictionary:
                 line += '  ' + span(esc(', '.join(r for r in rev if r)), C_DIM)
             out.append(line)
 
-# Synonyms / thesaurus.
-if synonyms:
-    for group in synonyms:
-        if not isinstance(group, list):
-            continue
-        pos = group[0] if len(group) > 0 else None
-        groups = group[1] if len(group) > 1 and isinstance(group[1], list) else []
-        if not groups:
-            continue
-        if pos:
-            out.append(span(esc(pos), C_POS, bold=True))
-        for g in groups:
-            if not isinstance(g, list) or not g:
-                continue
-            words = g[0] if isinstance(g[0], list) else []
-            # Registers come as a list of lists (e.g. [["dated"], ["informal"]]).
-            regs = []
-            if len(g) > 2 and isinstance(g[2], list):
-                for r in g[2]:
-                    if isinstance(r, list):
-                        regs.extend(x for x in r if isinstance(x, str))
-                    elif isinstance(r, str):
-                        regs.append(r)
-            if not words:
-                continue
-            line = span(esc(', '.join(words)), C_SYN)
-            if regs:
-                line += ' ' + span('(' + esc(', '.join(regs)) + ')', C_DIM, italic=True)
-            out.append(line)
-
-# Definitions (Oxford-style, with example sentences).
+# Definitions (Oxford-style, with example sentences) — the core explanation.
 if definitions:
     for group in definitions:
         if not isinstance(group, list):
@@ -262,6 +232,36 @@ if examples:
                 continue
             s = ex[0].replace('<b>', '').replace('</b>', '')
             out.append(span('\u2022 ' + esc(s), C_EX, italic=True))
+
+# Synonyms / thesaurus.
+if synonyms:
+    for group in synonyms:
+        if not isinstance(group, list):
+            continue
+        pos = group[0] if len(group) > 0 else None
+        groups = group[1] if len(group) > 1 and isinstance(group[1], list) else []
+        if not groups:
+            continue
+        if pos:
+            out.append(span(esc(pos), C_POS, bold=True))
+        for g in groups:
+            if not isinstance(g, list) or not g:
+                continue
+            words = g[0] if isinstance(g[0], list) else []
+            # Registers come as a list of lists (e.g. [["dated"], ["informal"]]).
+            regs = []
+            if len(g) > 2 and isinstance(g[2], list):
+                for r in g[2]:
+                    if isinstance(r, list):
+                        regs.extend(x for x in r if isinstance(x, str))
+                    elif isinstance(r, str):
+                        regs.append(r)
+            if not words:
+                continue
+            line = span(esc(', '.join(words)), C_SYN)
+            if regs:
+                line += ' ' + span('(' + esc(', '.join(regs)) + ')', C_DIM, italic=True)
+            out.append(line)
 
 # Reverse translations / see-also.
 if reverse:
