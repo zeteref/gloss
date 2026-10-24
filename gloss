@@ -374,7 +374,7 @@ prompt() {
 
   printf '%s' "${markup}" | osd-window --fullscreen -o "${OPACITY}" -F "${FONT}" \
     --config "$osd_cfg" \
-    --original "$original" --translation "$translation" --from "$from" --to "$to"
+    --var "original=$original" --var "translation=$translation" --var "from=$from" --var "to=$to"
 }
 
 # Read TEXT aloud in LANG using Google's TTS endpoint.
