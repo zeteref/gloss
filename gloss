@@ -224,6 +224,8 @@ if definitions:
 
 # Usage examples.
 if examples:
+    out.append('')
+    out.append(span('Examples', None, bold=True))
     for group in examples:
         if not isinstance(group, list):
             continue
@@ -235,6 +237,8 @@ if examples:
 
 # Synonyms / thesaurus.
 if synonyms:
+    out.append('')
+    out.append(span('Synonyms', None, bold=True))
     for group in synonyms:
         if not isinstance(group, list):
             continue
