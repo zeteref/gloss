@@ -1,7 +1,7 @@
 # Maintainer: zeteref <zeteref@gmail.com>
 
 pkgname=gloss
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="Translate and speak text in an osd-window overlay"
 arch=('any')
