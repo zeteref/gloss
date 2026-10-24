@@ -153,14 +153,15 @@ def span(s, color=None, bold=False, underline=False, italic=False, size=None):
 C_TRANS = '#9ece6a'   # green  - translation
 C_ORIG  = '#7e9cd8'   # blue   - original
 C_POS   = '#e0af68'   # orange - part of speech
-C_DIM   = '#565f89'   # grey   - secondary / reverse
+C_DIM   = '#c0caf5'   # light - secondary content (reverse, language, registers)
+C_HINT  = '#565f89'   # grey  - hints only
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
 C_ERR   = '#ff5555'   # red    - misspelled original
 C_PHON  = '#ff5555'   # red - phonetics (high visibility)
 
 def key_hint(key):
-    return ' ' + span('[' + esc(key) + '] speak', C_DIM, italic=True)
+    return ' ' + span('[' + esc(key) + '] speak', C_HINT, italic=True)
 
 out = []
 
