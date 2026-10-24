@@ -157,7 +157,7 @@ C_DIM   = '#565f89'   # grey   - secondary / reverse
 C_SYN   = '#bb9af7'   # purple - synonyms
 C_EX    = '#7dcfff'   # cyan   - examples
 C_ERR   = '#ff5555'   # red    - misspelled original
-C_PHON  = '#a9b1d6'   # light grey - phonetics
+C_PHON  = '#ff5555'   # red - phonetics (high visibility)
 
 def key_hint(key):
     return ' ' + span('[' + esc(key) + '] speak', C_DIM, italic=True)
@@ -173,12 +173,12 @@ if original:
         out.append(span(esc(original), C_ORIG, bold=True, size='large')
                    + key_hint('o'))
 if o_phon:
-    out.append(span('/' + esc(o_phon) + '/', C_PHON, italic=True))
+    out.append(span('/' + esc(o_phon) + '/', C_PHON, bold=True))
 if translation:
     out.append(span(esc(translation), C_TRANS, bold=True, size='large')
                + key_hint('s'))
 if t_phon:
-    out.append(span('/' + esc(t_phon) + '/', C_PHON, italic=True))
+    out.append(span('/' + esc(t_phon) + '/', C_PHON, bold=True))
 
 out.append(span('[ %s \u2192 %s ]' % (esc(from_lang), esc(tl)), C_DIM, italic=True))
 
